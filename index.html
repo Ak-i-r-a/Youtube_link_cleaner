@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youtube Link Cleaner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #181818;
+            color: #ffffff;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #E53E3E;
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #E53E3E;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 10px auto;
+            width: 100%;
+            max-width: 300px; /* Limite la largeur maximale du bouton */
+        }
+        button:hover {
+            background-color: #C53030;
+            transform: translateY(-1px);
+        }
+        .output-section {
+            margin-top: 20px;
+            border-radius: 10px;
+            padding: 15px;
+            background-color: #222;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            position: relative;
+            margin-left: auto;
+            margin-right: auto;
+            width: calc(100% - 30px); /* Ajuste la largeur pour le responsive */
+            word-break: break-word; /* Gère les mots longs */
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .result {
+            margin-top: 10px;
+            word-break: break-all; /* Gère les mots longs */
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            margin: 0;
+            border-radius: 50%;
+            background-color: #333;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+        .copy-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.3; /* Diminuer l'opacité si désactivé */
+        }
+        .copy-btn.active {
+            background-color: #E53E3E; /* Couleur active */
+            opacity: 1; /* Opacité pleine quand actif */
+        }
+        .copy-btn:hover:not(:disabled) {
+            transform: scale(1.1);
+        }
+        .copy-btn i {
+            font-size: 1.2rem; /* Taille de l'icône */
+        }
+
+        @media (max-width: 480px) {
+          body {
+              padding: 10px; /* Réduction du padding sur mobile */
+          }
+          h1 {
+              font-size: 2rem; /* Taille de police réduite sur mobile */
+              margin-bottom: 1.5rem; /* Espace réduit en bas du titre */
+          }
+          .output-section {
+              padding: 12px; /* Réduction du padding dans les sections de sortie */
+              margin-top: 15px; /* Espace entre les sections réduit */
+          }
+          .section-title {
+              font-size: 0.9rem; /* Taille de police réduite pour les titres des sections */
+          }
+          .result {
+              font-size: 0.9rem; /* Taille de police réduite pour les résultats */
+          }
+          .copy-btn {
+              width: 35px; /* Réduction de la taille du bouton de copie */
+              height: 35px; /* Réduction de la taille du bouton de copie */
+          }
+          .copy-btn i {
+              font-size: 1rem; /* Taille de l'icône réduite dans le bouton de copie */
+          }
+      }
+    </style>
+</head>
+<body>
+    <h1>Youtube Link Cleaner</h1>
+    <button id="analyzeBtn"><i class="fas fa-clipboard-check"></i> Analyze Clipboard</button>
+    
+    <div id="output">
+        <div class="output-section">
+            <div class="section-title">Number of unique video links found:</div>
+            <div class="result">0</div>
+        </div>
+        <div class="output-section">
+            <div class="section-title">Detected video links:</div>
+            <div class="result">No video links detected.</div>
+            <button class="copy-btn" id="copyLinksBtn" disabled><i class="fas fa-wallet"></i></button>
+        </div>
+        <div class="output-section">
+            <div class="section-title">Detected video IDs:</div>
+            <div class="result">No video IDs detected.</div>
+            <button class="copy-btn" id="copyIDsBtn" disabled><i class="fas fa-wallet"></i></button>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('analyzeBtn').addEventListener('click', async function() {
+        const output = document.getElementById('output');
+        
+        output.innerHTML = `
+          <div class="output-section">
+              <div class="section-title">Number of unique video links found:</div>
+              <div class="result">Analyzing...</div>
+          </div>
+          <div class="output-section">
+              <div class="section-title">Detected video links:</div>
+              <div class="result">Analyzing...</div>
+              <button class="copy-btn" id="copyLinksBtn" disabled><i class="fas fa-wallet"></i></button>
+          </div>
+          <div class="output-section">
+              <div class="section-title">Detected video IDs:</div>
+              <div class="result">Analyzing...</div>
+              <button class="copy-btn" id="copyIDsBtn" disabled><i class="fas fa-wallet"></i></button>
+          </div>
+        `;
+
+        try {
+            const clipboardContent = await navigator.clipboard.read();
+            let totalLinksFound = 0;
+            let watchURLs = [];
+            let videoIDs = [];
+
+             for (const item of clipboardContent) {
+                for (const type of item.types) {
+                    const blob = await item.getType(type);
+                    const text = await blob.text();
+
+                    if (type === 'text/plain' || type === 'text/html') {
+                        const [urls, ids] = extractURLs(text);
+                        watchURLs = watchURLs.concat(urls);
+                        videoIDs = videoIDs.concat(ids);
+                    }
+                }
+             }
+
+             totalLinksFound = watchURLs.length;
+
+             output.innerHTML = `
+                <div class="output-section">
+                    <div class="section-title">Number of unique video links found:</div>
+                    <div class="result">${totalLinksFound}</div>
+                </div>
+                <div class="output-section">
+                    <div class="section-title">Detected video links:</div>
+                    <div class="result">${watchURLs.length > 0 ? watchURLs.join('<br>') : 'No video links detected.'}</div>
+                    <button class="copy-btn ${watchURLs.length > 0 ? 'active' : ''}" id="copyLinksBtn" ${watchURLs.length === 0 ? 'disabled' : ''}><i class="fas fa-wallet"></i></button>
+                </div>
+                <div class="output-section">
+                    <div class="section-title">Detected video IDs:</div>
+                    <div class="result">${videoIDs.length > 0 ? videoIDs.join('<br>') : 'No video IDs detected.'}</div>
+                    <button class="copy-btn ${videoIDs.length > 0 ? 'active' : ''}" id="copyIDsBtn" ${videoIDs.length === 0 ? 'disabled' : ''}><i class="fas fa-wallet"></i></button>
+                </div>
+             `;
+
+             if (watchURLs.length > 0) {
+                 document.getElementById('copyLinksBtn').onclick = function() { 
+                     copyToClipboard(watchURLs);
+                     this.classList.add('active');
+                 };
+             }
+             if (videoIDs.length > 0) {
+                 document.getElementById('copyIDsBtn').onclick = function() { 
+                     copyToClipboard(videoIDs);
+                     this.classList.add('active');
+                 };
+             }
+
+         } catch (err) {
+           output.innerHTML = "<p>Error accessing clipboard: " + err + "</p>";
+         }
+     });
+
+     function extractURLs(fileContent) {
+         const tempDiv = document.createElement('div');
+         tempDiv.innerHTML = fileContent;
+
+         const links = tempDiv.getElementsByTagName('a');
+         const watchURLsSet = new Set();
+         const videoIDsSet = new Set();
+
+         for (let link of links) {
+             const href = link.href; 
+             const match = href.match(/(https?:\/\/)?(www\.)?youtube\.com\/watch\?v=[^&]+/); 
+             if (match) { 
+                 watchURLsSet.add(match[0]); 
+                 const videoIDMatch = match[0].match(/(?<=v=)[^&]+/); 
+                 if (videoIDMatch) { 
+                     videoIDsSet.add(videoIDMatch[0]); 
+                 } 
+             } 
+         } 
+         return [Array.from(watchURLsSet), Array.from(videoIDsSet)];
+     }
+
+     function copyToClipboard(items) { 
+         const textToCopy = items.join('\n'); 
+         navigator.clipboard.writeText(textToCopy).then(() => { 
+             alert('Copied to clipboard!'); 
+         }).catch(err => { 
+             console.error('Failed to copy text:', err); 
+         }); 
+     }
+
+     // Simulating network request interception
+     const originalFetch = window.fetch; 
+     window.fetch = function(...args) { 
+         console.log("Intercepted request:", args[0]); 
+         return originalFetch.apply(this, args); 
+     }; 
+
+    </script> 
+</body> 
+</html>
